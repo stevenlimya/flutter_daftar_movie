@@ -13,13 +13,25 @@ class DetailScreen extends StatefulWidget {
   State<DetailScreen> createState() => _DetailScreenState();
 }
 
-class _DetailScreenState extends State<DetailScreen> {
+class _DetailScreenState extends State<DetailScreen>
+    with SingleTickerProviderStateMixin {
   bool _isFavorite = false;
+  late AnimationController _animationController;
 
   @override
   void initState() {
     super.initState();
     _checkIsFavorite();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 500),
+      vsync: this,
+    );
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
   }
 
   Future<void> _checkIsFavorite() async {
@@ -30,6 +42,10 @@ class _DetailScreenState extends State<DetailScreen> {
   }
 
   Future<void> _toggleFavorite() async {
+    _animationController.forward().then((_) {
+      _animationController.reverse();
+    });
+
     SharedPreferences prefs = await SharedPreferences.getInstance();
     setState(() {
       _isFavorite = !_isFavorite;
@@ -41,7 +57,9 @@ class _DetailScreenState extends State<DetailScreen> {
 
       List<String> favoriteMovieIds =
           prefs.getStringList('favoriteMovies') ?? [];
-      favoriteMovieIds.add(widget.movie.id.toString());
+      if (!favoriteMovieIds.contains(widget.movie.id.toString())) {
+        favoriteMovieIds.add(widget.movie.id.toString());
+      }
       await prefs.setStringList('favoriteMovies', favoriteMovieIds);
     } else {
       await prefs.remove('movie_${widget.movie.id}');
@@ -56,122 +74,263 @@ class _DetailScreenState extends State<DetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: Text(widget.movie.title),
-        actions: [
-          IconButton(
-            icon: Icon(_isFavorite ? Icons.favorite : Icons.favorite_border),
-            onPressed: _toggleFavorite,
+        title: Container(
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.7),
+            borderRadius: BorderRadius.circular(8),
           ),
-        ],
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          child: Text(
+            widget.movie.title,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        backgroundColor: Colors.black.withOpacity(0.5),
+        elevation: 4,
       ),
       body: SingleChildScrollView(
         child: Column(
           children: [
+            // Poster dengan gradient overlay
             Stack(
               children: [
                 Image.network(
                   'https://image.tmdb.org/t/p/w500${widget.movie.posterPath}',
                   fit: BoxFit.cover,
                   width: double.infinity,
-                  height: 300,
+                  height: 350,
                 ),
+                Container(
+                  height: 350,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        Colors.black.withOpacity(0.7),
+                      ],
+                    ),
+                  ),
+                ),
+                // Rating badge
                 Positioned(
-                  bottom: 10,
-                  right: 10,
+                  bottom: 15,
+                  right: 15,
                   child: Container(
                     decoration: BoxDecoration(
-                      color: Colors.yellow,
-                      borderRadius: BorderRadius.circular(8),
+                      gradient: const LinearGradient(
+                        colors: [Colors.amber, Colors.orange],
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.orange.withOpacity(0.5),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
-                    padding: const EdgeInsets.all(8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                     child: Row(
                       children: [
-                        const Icon(Icons.star, color: Colors.orange, size: 20),
+                        const Icon(Icons.star, color: Colors.white, size: 20),
                         const SizedBox(width: 5),
                         Text(
                           widget.movie.voteAverage.toStringAsFixed(1),
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
-                            fontSize: 14,
+                            fontSize: 16,
+                            color: Colors.white,
                           ),
                         ),
                       ],
                     ),
                   ),
                 ),
+                // Heart logo di kanan bawah
+                Positioned(
+                  bottom: 15,
+                  left: 15,
+                  child: ScaleTransition(
+                    scale: Tween(
+                      begin: 1.0,
+                      end: 1.2,
+                    ).animate(_animationController),
+                    child: GestureDetector(
+                      onTap: _toggleFavorite,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: _isFavorite
+                              ? Colors.red.withOpacity(0.9)
+                              : Colors.white.withOpacity(0.3),
+                          borderRadius: BorderRadius.circular(50),
+                          boxShadow: [
+                            BoxShadow(
+                              color: _isFavorite
+                                  ? Colors.red.withOpacity(0.6)
+                                  : Colors.black.withOpacity(0.3),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        padding: const EdgeInsets.all(12),
+                        child: Icon(
+                          _isFavorite ? Icons.favorite : Icons.favorite_border,
+                          color: Colors.white,
+                          size: 28,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
-            const SizedBox(height: 16),
+            // Content
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              padding: const EdgeInsets.all(20.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Title
                   Text(
                     widget.movie.title,
                     style: const TextStyle(
-                      fontSize: 22,
+                      fontSize: 26,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Release Date: ${widget.movie.releaseDate}',
-                    style: const TextStyle(fontSize: 14, color: Colors.grey),
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Overview',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    widget.movie.overview,
-                    textAlign: TextAlign.justify,
-                    style: const TextStyle(fontSize: 14),
-                  ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 12),
+                  // Release Date dengan Icon
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      ElevatedButton.icon(
-                        onPressed: _toggleFavorite,
-                        icon: Icon(
-                          _isFavorite ? Icons.favorite : Icons.favorite_border,
-                          color: Colors.white,
-                        ),
-                        label: Text(
-                          _isFavorite ? 'Remove Favorite' : 'Add Favorite',
-                          style: const TextStyle(color: Colors.white),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _isFavorite
-                              ? Colors.red
-                              : Colors.blue,
-                        ),
+                      const Icon(
+                        Icons.calendar_today,
+                        color: Colors.grey,
+                        size: 18,
                       ),
-                      ElevatedButton.icon(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const FavoriteScreen(),
-                            ),
-                          );
-                        },
-                        icon: const Icon(Icons.favorite, color: Colors.white),
-                        label: const Text(
-                          'View Favorites',
-                          style: TextStyle(color: Colors.white),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.purple,
+                      const SizedBox(width: 8),
+                      Text(
+                        widget.movie.releaseDate,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 24),
+                  // Overview Section
+                  const Text(
+                    'Overview',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.grey[100],
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey[300]!),
+                    ),
+                    padding: const EdgeInsets.all(16),
+                    child: Text(
+                      widget.movie.overview,
+                      textAlign: TextAlign.justify,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        height: 1.6,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  // Action Buttons
+                  Column(
+                    children: [
+                      SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: ElevatedButton.icon(
+                          onPressed: _toggleFavorite,
+                          icon: Icon(
+                            _isFavorite
+                                ? Icons.favorite
+                                : Icons.favorite_border,
+                            color: Colors.white,
+                            size: 24,
+                          ),
+                          label: Text(
+                            _isFavorite
+                                ? 'Remove from Favorite'
+                                : 'Add to Favorite',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _isFavorite
+                                ? Colors.red
+                                : Colors.blue,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 4,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const FavoriteScreen(),
+                              ),
+                            );
+                          },
+                          icon: const Icon(
+                            Icons.favorite,
+                            color: Colors.white,
+                            size: 24,
+                          ),
+                          label: const Text(
+                            'View All Favorites',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.purple,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 4,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
                 ],
               ),
             ),
