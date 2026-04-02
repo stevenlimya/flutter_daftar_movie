@@ -45,15 +45,16 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Film Ilegal')),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildMoviesList('All Movies', _allMovies),
-            _buildMoviesList('Trending Movies', _trendingMovies),
-            _buildMoviesList('Popular Movies', _popularMovies),
-          ],
-        ),
+      body: CustomScrollView(
+        slivers: [
+          SliverList(
+            delegate: SliverChildListDelegate([
+              _buildMoviesList('All Movies', _allMovies),
+              _buildMoviesList('Trending Movies', _trendingMovies),
+              _buildMoviesList('Popular Movies', _popularMovies),
+            ]),
+          ),
+        ],
       ),
     );
   }
@@ -73,6 +74,9 @@ class _HomeScreenState extends State<HomeScreen> {
           height: 200,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics(),
+            ),
             itemCount: movies.length,
             itemBuilder: (BuildContext context, int index) {
               final Movie movie = movies[index];
